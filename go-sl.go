@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/nsf/termbox-go"
 )
 
@@ -64,45 +66,74 @@ func fill(x1, y1, x2, y2 int, fg, bg termbox.Attribute) {
 
 func drawChart() {
 	screen.Clear(text, background)
-	fill(0, 0, screen.Width-1, screen.Height-1, background, termbox.ColorRed)
-	printString(0, 2, d51STR1)
-	printString(0, 3, d51STR2)
-	printString(0, 8, "KAKAOWY POCIĄg")
+	for i, section := range train {
+		printString(0, i, section)
+	}
+	printString(0, 8, "KAKAOWY POCIĄG")
 	screen.Flush()
 
+}
+
+func drawTrain(x, y int) {
+	screen.Clear(text, background)
+	wheel := x % 5
+	for i, section := range append(train, getWheels(wheel)...) {
+		printString(x, i+y, section)
+	}
+
+	screen.Flush()
+}
+
+func getWheels(a int) []string {
+	switch a {
+	case 0:
+		return wheels0
+	case 1:
+		return wheels1
+	case 2:
+		return wheels2
+	case 3:
+		return wheels3
+	case 4:
+		return wheels4
+	case 5:
+		return wheels5
+	}
+	return wheels0
 }
 
 func printString(x, y int, s string) {
 	offsetX := 0
 	offsetY := 0
 	for _, char := range s {
-		if char == '\n' {
-			offsetX = 0
-			offsetY++
-		} else {
-			screen.Buffer[x+offsetX+(y+offsetY)*screen.Width].Ch = char
-			screen.Buffer[x+offsetX+(y+offsetY)*screen.Width].Fg = termbox.ColorBlue
-			offsetX++
+		if x+offsetX > screen.Width-1 {
+			return
 		}
+		if x+offsetX > 0 {
+			screen.Buffer[x+offsetX+(y+offsetY)*screen.Width].Ch = char
+		}
+		offsetX++
 	}
 }
 
 func main() {
 	err := screen.Init()
 	check(err)
-
 	defer termbox.Close()
-	drawChart()
-	for loop := true; loop; {
-		switch ev := termbox.PollEvent(); ev.Type {
-		case termbox.EventKey:
-			switch ev.Key {
-			case termbox.KeyCtrlQ, termbox.KeyF10:
-				loop = false
-				drawChart()
+	ticker := time.NewTicker(40000 * time.Microsecond)
+	done := make(chan bool)
+	trainOffset := screen.Width
+
+	go func() {
+		for {
+			<-ticker.C
+			trainOffset--
+			drawTrain(trainOffset, screen.Height/2-5)
+			if trainOffset == -len(train[0]) {
+				done <- true
 			}
-		case termbox.EventResize:
-			drawChart()
 		}
-	}
+	}()
+
+	<-done
 }
